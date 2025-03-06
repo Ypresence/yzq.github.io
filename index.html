@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>触屏烟花</title>
+    <title>精致触屏烟花</title>
     <style>
         body {
             margin: 0;
@@ -23,7 +23,7 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-// 设置画布全屏
+// 画布适配
 function resizeCanvas() {
     canvas.width = window.innerWidth * devicePixelRatio;
     canvas.height = window.innerHeight * devicePixelRatio;
@@ -33,62 +33,88 @@ resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
 const particles = [];
-const maxParticles = 800; // 最大粒子数
-const gravity = 0.2;
-const decay = 0.016;
+const maxParticles = 1200;
+const gravity = 0.1;
+const decay = 0.015;
 
 class Particle {
-    constructor(x, y, hue) {
+    constructor(x, y, baseHue) {
+        // 位置参数
         this.x = x;
         this.y = y;
-        this.hue = hue;
-        this.alpha = 1;
-        this.decay = decay + Math.random() * 0.01;
         
-        // 初始速度（极坐标）
+        // 颜色参数
+        this.baseHue = baseHue;
+        this.hueVariation = Math.random() * 30 - 15; // 色相微调
+        this.lightness = 50 + Math.random() * 20;  // 亮度变化
+        this.alpha = 1;
+        
+        // 运动参数
         const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 12 + 2;
+        const speed = Math.random() * 3 + 3; // 降低速度
         this.vx = Math.cos(angle) * speed;
         this.vy = Math.sin(angle) * speed;
+        
+        // 显示参数
+        this.radius = Math.random() * 2 + 1; // 更小的粒子
+        this.decay = decay + Math.random() * 0.01;
     }
 
     update() {
-        this.vx *= 0.99;
-        this.vy *= 0.99;
+        // 物理模拟
+        this.vx *= 0.985;
+        this.vy *= 0.985;
         this.vy += gravity;
         
         this.x += this.vx;
         this.y += this.vy;
         this.alpha -= this.decay;
         
-        return this.alpha > 0;
+        // 半径动态变化
+        this.radius *= 0.985;
+        
+        return this.alpha > 0 && this.radius > 0.2;
     }
 
     draw() {
-        ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${this.alpha})`;
+        const currentHue = this.baseHue + this.hueVariation * (1 - this.alpha);
+        ctx.fillStyle = `hsla(${currentHue}, 90%, ${this.lightness}%, ${this.alpha})`;
+        
         ctx.beginPath();
-        ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
     }
 }
 
 function createFirework(x, y) {
-    const hue = Math.random() * 360;
-    const particleCount = Math.random() * 80 + 50;
+    const baseHue = Math.random() * 360;
+    const particleCount = Math.min(80, Math.floor(maxParticles - particles.length));
     
+    // 中心亮点
+    particles.push(new Particle(x, y, baseHue));
+    
+    // 主粒子群
     for (let i = 0; i < particleCount; i++) {
-        if (particles.length < maxParticles) {
-            particles.push(new Particle(x, y, hue));
+        particles.push(new Particle(x, y, baseHue));
+        
+        // 添加闪烁粒子
+        if (i % 5 === 0) {
+            const spark = new Particle(x, y, baseHue);
+            spark.radius = 1.2;
+            spark.lightness = 80;
+            spark.vx *= 1.2;
+            spark.vy *= 1.2;
+            particles.push(spark);
         }
     }
 }
 
-// 动画循环
+// 优化后的动画循环
 function animate() {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; // 更浅的拖尾
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 更新并绘制粒子
+    // 批量更新和绘制
     for (let i = particles.length - 1; i >= 0; i--) {
         if (!particles[i].update()) {
             particles.splice(i, 1);
@@ -100,31 +126,27 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-// 触摸事件处理
+// 触摸事件
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    const touches = e.changedTouches;
-    for (let i = 0; i < touches.length; i++) {
-        const x = touches[i].pageX;
-        const y = touches[i].pageY;
-        createFirework(x, y);
-    }
+    Array.from(e.touches).forEach(touch => {
+        createFirework(touch.pageX, touch.pageY);
+    });
 });
 
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    const touches = e.touches;
-    for (let i = 0; i < touches.length; i++) {
-        const x = touches[i].pageX;
-        const y = touches[i].pageY;
-        createFirework(x, y);
-    }
+    Array.from(e.touches).forEach(touch => {
+        for (let i = 0; i < 2; i++) { // 拖尾密度减半
+            createFirework(touch.pageX, touch.pageY);
+        }
+    });
 }, { passive: false });
 
 // 启动动画
 animate();
 
-// 性能优化：离开页面时停止动画
+// 性能优化
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         particles.length = 0;
