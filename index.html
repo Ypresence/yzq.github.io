@@ -1,11 +1,177 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>手机接金币游戏</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f0f0f0;
+            touch-action: none;
+        }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #fff;
+        }
+        #score {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+            font-family: Arial;
+        }
+        #restart {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-    <img src="./Image_1717237806690.jpg">
+    <div id="score">得分: 0</div>
+    <canvas id="gameCanvas"></canvas>
+    <button id="restart">重新开始</button>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreElement = document.getElementById('score');
+const restartButton = document.getElementById('restart');
+
+// 设置画布尺寸为屏幕尺寸
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight * 0.8;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+let score = 0;
+let isGameOver = false;
+let touchX = 0;
+
+const player = {
+    x: canvas.width/2,
+    y: canvas.height - 50,
+    width: 60,
+    height: 60,
+    speed: 8
+};
+
+const items = [];
+
+function createItem() {
+    if(Math.random() < 0.3) { // 30%概率生成炸弹
+        items.push({
+            x: Math.random() * (canvas.width - 30),
+            y: -30,
+            width: 30,
+            height: 30,
+            type: 'bomb'
+        });
+    } else {
+        items.push({
+            x: Math.random() * (canvas.width - 30),
+            y: -30,
+            width: 30,
+            height: 30,
+            type: 'coin'
+        });
+    }
+}
+
+function checkCollision(rect1, rect2) {
+    return rect1.x < rect2.x + rect2.width &&
+           rect1.x + rect1.width > rect2.x &&
+           rect1.y < rect2.y + rect2.height &&
+           rect1.y + rect1.height > rect2.y;
+}
+
+function gameLoop() {
+    if(isGameOver) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 绘制玩家
+    ctx.fillStyle = '#4CAF50';
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+
+    // 生成物品
+    if(Math.random() < 0.03) {
+        createItem();
+    }
+
+    // 更新和绘制物品
+    items.forEach((item, index) => {
+        item.y += 4;
+        ctx.fillStyle = item.type === 'coin' ? '#FFD700' : '#FF0000';
+        ctx.fillRect(item.x, item.y, item.width, item.height);
+
+        // 碰撞检测
+        if(checkCollision(player, item)) {
+            if(item.type === 'coin') {
+                score += 10;
+                scoreElement.textContent = `得分: ${score}`;
+            } else {
+                isGameOver = true;
+                restartButton.style.display = 'block';
+            }
+            items.splice(index, 1);
+        }
+
+        // 移出屏幕外的物品
+        if(item.y > canvas.height) {
+            items.splice(index, 1);
+        }
+    });
+
+    requestAnimationFrame(gameLoop);
+}
+
+// 触控事件处理
+canvas.addEventListener('touchstart', (e) => {
+    touchX = e.touches[0].clientX;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const newX = e.touches[0].clientX;
+    const deltaX = newX - touchX;
+    
+    // 根据滑动方向移动玩家
+    if(deltaX > 0) { // 向右滑动
+        player.x = Math.min(canvas.width - player.width, player.x + player.speed);
+    } else { // 向左滑动
+        player.x = Math.max(0, player.x - player.speed);
+    }
+    
+    touchX = newX;
+});
+
+restartButton.addEventListener('click', () => {
+    isGameOver = false;
+    score = 0;
+    items.length = 0;
+    player.x = canvas.width/2;
+    scoreElement.textContent = '得分: 0';
+    restartButton.style.display = 'none';
+    gameLoop();
+});
+
+// 开始游戏
+gameLoop();
+</script>
 </body>
 </html>
